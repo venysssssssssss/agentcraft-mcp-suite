@@ -29,13 +29,35 @@ AgentCraft is **not a replacement editor** and does not implement third-party MC
 
 ### 1. Install AgentCraft
 
+On **Ubuntu / Debian / WSL2** with Python 3.12+, the system Python is often *externally managed* (PEP 668). Do **not** install this CLI into system Python and do **not** use `--break-system-packages`.
+
+**Option A — pipx (recommended for a reusable CLI across projects):**
+
 ```bash
-# Clone after publishing the repository (or unpack the provided source archive)
 git clone https://github.com/venysssssssssss/agentcraft-mcp-suite.git
 cd agentcraft-mcp-suite
+sudo apt update && sudo apt install -y pipx
+pipx ensurepath
+pipx install .
+~/.local/bin/agentcraft --version
+```
+
+Open a fresh terminal after `pipx ensurepath` if `agentcraft` is not on `PATH`. The command installed by pipx is available independently of a Python virtual environment. To reinstall a local modified checkout, use `pipx reinstall agentcraft-mcp-suite` or uninstall and install again.
+
+**Option B — virtual environment (editable checkout / development):**
+
+```bash
+git clone https://github.com/venysssssssssss/agentcraft-mcp-suite.git
+cd agentcraft-mcp-suite
+python3 -m venv .venv
+source .venv/bin/activate
 python -m pip install -e .
 agentcraft --version
 ```
+
+Keep that environment activated when using the command, or invoke `./.venv/bin/agentcraft` directly. If `venv` fails due to missing `ensurepip`, install `python3-venv` through `apt`. On Windows, activate `.venv\\Scripts\\Activate.ps1` in PowerShell instead.
+
+The examples below assume `agentcraft` is available on your `PATH`. The installer writes skills to the **specified target workspace**; running `--target .` inside this repository configures this repository, not every other project.
 
 ### 2. Register your apps in a working project
 
@@ -220,7 +242,7 @@ The placeholder ID is intentional; substitute a real ID discovered from your run
 
 | Symptom | Action |
 |---|---|
-| `*-cli not found` | Install/build the upstream CLI, add it to PATH, pass `--bin-dir`, or set `AGENTCRAFT_<APP>_CLI`. |
+| `externally-managed-environment` or `agentcraft: command not found` | On Ubuntu/WSL2, install through `pipx` or an activated `venv` (see Quick start). Never bypass PEP 668 with `--break-system-packages`. |\n| `*-cli not found` | Install/build the upstream CLI, add it to PATH, pass `--bin-dir`, or set `AGENTCRAFT_<APP>_CLI`. |
 | Skill visible but no tools | A skill is not a server. Run `agentcraft doctor --apps <app>`; reinstall config; restart client. |
 | GUI bridge connection refused | Start the desktop app with the documented `--control` port; verify token and flags. |
 | Windows CLI and WSL agent cannot connect | Install a native Linux build in WSL, or run the client and CLI together on Windows. |
