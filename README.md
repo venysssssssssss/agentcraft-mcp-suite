@@ -201,7 +201,7 @@ python examples/effectcraft_render_e2e.py
 
 This invokes `comp.open` → `renderQueue.add` → `renderQueue.list` → `renderQueue.render` → `renderQueue.list` in the **same** MCP process, avoiding the state loss of repeated `agentcraft call` invocations. It refuses to overwrite an existing MP4 by default.
 
-The script is **mock-tested locally** but has not yet been run against a real EffectCraft render in this repository's CI. See the [full procedure and acceptance criteria](docs/effectcraft-render-e2e.md) and [verification matrix](docs/verification.md).
+**Real-world validation (2026-10-18, user-executed WSL2):** EffectCraft 0.11.1 completed the full native MCP render workflow. FFprobe verified a 1.0-second, 1920×1080 H.264 MP4 (32,388 bytes); engine reported 30 frames, 0 failed items and approximately 1.08 seconds of render time. This is evidence from a user-provided local terminal log, **not** a CI run or independent visual/animation quality certification. CI still exercises a simulated MCP server. See the [manual procedure](docs/effectcraft-render-e2e.md) and [verification matrix](docs/verification.md).
 
 ## Supported applications
 
@@ -280,7 +280,8 @@ The placeholder ID is intentional; substitute a real ID discovered from your run
 
 | Symptom | Action |
 |---|---|
-| `externally-managed-environment` or `agentcraft: command not found` | On Ubuntu/WSL2, install through `pipx` or an activated `venv` (see Quick start). Never bypass PEP 668 with `--break-system-packages`. |\n| `*-cli not found` | Install/build the upstream CLI, add it to PATH, pass `--bin-dir`, or set `AGENTCRAFT_<APP>_CLI`. |
+| `externally-managed-environment` or `agentcraft: command not found` | On Ubuntu/WSL2, install through `pipx` or an activated `venv` (see Quick start). Never bypass PEP 668 with `--break-system-packages`. |
+| `*-cli not found` | Install/build the upstream CLI, add it to PATH, pass `--bin-dir`, or set `AGENTCRAFT_<APP>_CLI`. |
 | Skill visible but no tools | A skill is not a server. Run `agentcraft doctor --apps <app>`; reinstall config; restart client. |
 | GUI bridge connection refused | Start the desktop app with the documented `--control` port; verify token and flags. |
 | Windows CLI and WSL agent cannot connect | Install a native Linux build in WSL, or run the client and CLI together on Windows. |
