@@ -189,6 +189,20 @@ $agentcraft Plan a cross-app workflow: vector illustration → motion compositio
 
 The third example uses Codex's `$` invocation. Requests are **examples**, not guaranteed capabilities; engine commands, encoders and output formats are determined by your installed versions.
 
+## EffectCraft H.264 render smoke test (manual E2E)
+
+After [creating and saving an EffectCraft project](docs/effectcraft-render-e2e.md), run a single-session MCP render of **1 second** to MP4, then verify the encoded video stream with FFprobe:
+
+```bash
+# Ubuntu / WSL2 (in your activated AgentCraft venv)
+sudo apt install -y ffmpeg
+python examples/effectcraft_render_e2e.py
+```
+
+This invokes `comp.open` → `renderQueue.add` → `renderQueue.list` → `renderQueue.render` → `renderQueue.list` in the **same** MCP process, avoiding the state loss of repeated `agentcraft call` invocations. It refuses to overwrite an existing MP4 by default.
+
+The script is **mock-tested locally** but has not yet been run against a real EffectCraft render in this repository's CI. See the [full procedure and acceptance criteria](docs/effectcraft-render-e2e.md) and [verification matrix](docs/verification.md).
+
 ## Supported applications
 
 | Skill / MCP server | Primary workflow | Authoritative upstream documentation |
