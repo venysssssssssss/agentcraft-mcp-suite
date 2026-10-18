@@ -68,7 +68,7 @@ agentcraft doctor --apps all --bin-dir "$HOME/.local/bin"
 
 O download das 13 versões x86_64 consultadas soma aproximadamente **938 MiB compactados**, antes da extração. O tamanho instalado e as dependências do sistema variam; no WSL2 a imagem do disco virtual poderá crescer. O `doctor` confirma apenas o handshake MCP, não a qualidade dos renders.
 
-## 4. Configure as skills no projeto
+## 4. Configure as skills no projeto — sem iniciar MCPs
 
 Exemplo Linux/WSL:
 
@@ -84,6 +84,21 @@ agentcraft install --scope project --target C:\Dev\meu-projeto --apps effectcraf
 ```
 
 Quando necessário, informe `--bin-dir` (diretório contendo vários CLIs). Use `--strict` para interromper se algum binário selecionado não for encontrado.
+
+
+### Migração da v0.1.x para v0.2.0 (ativação sob demanda)
+
+```bash
+cd ~/BIG/agentcraft-mcp-suite
+git pull --ff-only
+python -m pip install -e .
+agentcraft install --scope project --target . --apps all --client all --bin-dir "$HOME/.local/bin"
+agentcraft audit --target .
+```
+
+**Zero registros MCP ArtCraft ativos** no OpenCode, Claude Code e Codex após a migração do projeto. Reinicie os três clientes para descarregar processos já inicializados. A auditoria verifica configurações locais e globais comuns, mas não inspeciona plugins externos ou processos internos. Se aparecer um conflito não reconhecido, desative o MCP manualmente e execute a auditoria outra vez.
+
+**Invocação direta:** OpenCode e Claude Code: `/agentcraft-pdfcraft`. Codex: `$agentcraft-pdfcraft`. A skill inicia somente o MCP solicitado via `agentcraft session start pdfcraft`, utiliza `session tools/call` e termina com `session stop`, em comandos de shell. Leia [documentação da arquitetura sob demanda](on-demand.md).
 
 ## 5. Faça o diagnóstico
 
