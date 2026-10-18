@@ -101,7 +101,18 @@ A execução cria `docs/generated/effectcraft.md` e `docs/generated/effectcraft.
 - OpenCode: `/agentcraft-effectcraft`.
 - Orquestração entre várias ferramentas: `agentcraft`.
 
-## 7. Cuidados
+## 7. Teste real de exportação MP4 (EffectCraft)
+
+Com o projeto nativo `~/BIG/agentcraft-smoke/effectcraft-smoke.ecproj` já salvo e contendo a composição `AgentCraft Smoke Test`:
+
+```bash
+sudo apt install -y ffmpeg
+python examples/effectcraft_render_e2e.py
+```
+
+O exemplo abre o projeto numa **única sessão MCP**, adiciona 1 segundo à fila H.264, aguarda a renderização e valida o MP4 com FFprobe. Não sobrescreve arquivos existentes sem `--overwrite`. Passou em testes unitários com MCP simulado; o render real no WSL2 precisa ser executado e conferido. [Procedimento completo](effectcraft-render-e2e.md).
+
+## 8. Cuidados
 
 O MCP executa processos e pode criar/modificar arquivos. Para builds cuja documentação upstream confirma isolamento de diretórios, use `--file-scope workspace` com `--scope project`. Cada app possui limitações de bridge, tokens, modo headless e exportação. Não presuma que endpoints internos tenham IDs idênticos entre versões.
 
