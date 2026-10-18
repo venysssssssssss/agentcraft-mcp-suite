@@ -1,6 +1,6 @@
 # EffectCraft — real H.264 render via MCP (manual E2E)
 
-This example is **not yet certified** on a real ArtCraft build. It is based on the runtime command catalog shared from EffectCraft 0.11.1 and the [upstream MCP](https://github.com/storytold/effectcraft/blob/main/docs/mcp.md) and [agent](https://github.com/storytold/effectcraft/blob/main/docs/agents.md) documentation.
+**Manual E2E validation:** completed on a real EffectCraft 0.11.1 release under Ubuntu/WSL2 on 2026-10-18, based on the user's terminal log. The integration remains **uncertified as a complete creative production workflow**: this validates one simple H.264 export, not animation quality, GUI bridging or all supported effects/formats. The implementation follows the [upstream MCP](https://github.com/storytold/effectcraft/blob/main/docs/mcp.md) and [agent](https://github.com/storytold/effectcraft/blob/main/docs/agents.md) documentation.
 
 ## Preconditions
 
@@ -53,3 +53,32 @@ An existing MP4 will not be overwritten unless `--overwrite` is explicitly provi
 - FFprobe reports a video stream with `codec_name=h264` and positive duration; script prints width, height and file size.
 
 A passing result proves one end-to-end render for this app/version/configuration. It does **not** establish coverage for the other 12 apps or every render format. Keep `docs/verification.md` updated only after a real successful run.
+
+## Observed real-world result (2026-10-18)
+
+Source: terminal output supplied by the project owner after running `python examples/effectcraft_render_e2e.py` with the native EffectCraft 0.11.1 CLI on WSL2 Ubuntu. This report is intentionally **user-observed**, not a claim of CI execution or independent file inspection.
+
+| Check | Observed |
+|---|---|
+| MCP session | Successful `comp.open`, `renderQueue.add`, `renderQueue.list`, `renderQueue.render`, `renderQueue.list` |
+| Render output | `~/BIG/agentcraft-smoke/effectcraft-smoke.mp4` |
+| Render queue | 1 job, `failed=0`, 30 frames |
+| Engine-reported render time | 1.083568732 seconds |
+| FFprobe codec | `h264` |
+| FFprobe resolution | 1920 × 1080 |
+| FFprobe duration | 1.0 second |
+| Output size | 32,388 bytes |
+| Script result | `PASS: MP4 file validated` |
+
+### Quality checks still required
+
+The test project contains a simple text layer and may produce identical frames; this is **not proof of temporal animation**. A follow-up test should animate a known property using explicit keyframes, render at least two temporally distinct frames, compare decoded frame hashes, and visually inspect PNG stills. Native project reopen and round-trip fidelity, more complex effects, codecs, image quality and renderer reliability remain unverified.
+
+To extract first/last frames from the user-produced output for inspection (requires `ffmpeg`):
+
+```bash
+mkdir -p ~/BIG/agentcraft-smoke/frames
+ffmpeg -y -v error -i ~/BIG/agentcraft-smoke/effectcraft-smoke.mp4 -vf 'select=eq(n\,0)+eq(n\,29)' -vsync 0 ~/BIG/agentcraft-smoke/frames/frame-%02d.png
+```
+
+Identical decoded frames are expected for a static scene and do not invalidate this **encoding** smoke test; they do not establish motion-design quality either.
