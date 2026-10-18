@@ -10,15 +10,37 @@ Obtenha os releases oficiais em https://getartcraft.com/apps ou construa o biná
 
 **WSL2:** prefira executar o Codex/Claude Code/OpenCode e o CLI ArtCraft no mesmo ambiente Linux do WSL. Os executáveis Windows e Linux não compartilham necessariamente GUI, caminhos de arquivos e sessões MCP.
 
-## 2. Instale a skill
+## 2. Instale o AgentCraft (Ubuntu / WSL2)
+
+O Ubuntu com Python 3.12 pode bloquear instalações globais com `externally-managed-environment` (PEP 668). **Não use `--break-system-packages`.**
+
+**Opção recomendada para um CLI reutilizável em vários projetos — pipx:**
 
 ```bash
 git clone https://github.com/venysssssssssss/agentcraft-mcp-suite.git
 cd agentcraft-mcp-suite
-python -m pip install -e .
+sudo apt update && sudo apt install -y pipx
+pipx ensurepath
+pipx install .
+~/.local/bin/agentcraft --version
 ```
 
-Ou descompacte o arquivo ZIP distribuído com a release, entre na pasta e execute `python -m pip install -e .`.
+Após `pipx ensurepath`, abra um novo terminal caso `agentcraft` ainda não seja encontrado no `PATH`.
+
+**Alternativa para desenvolvimento e instalação editável — venv:**
+
+```bash
+git clone https://github.com/venysssssssssss/agentcraft-mcp-suite.git
+cd agentcraft-mcp-suite
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+agentcraft --version
+```
+
+Se faltar `ensurepip`, instale `python3-venv` via `apt`. Em sessões posteriores, reative com `source .venv/bin/activate` ou utilize `./.venv/bin/agentcraft` diretamente.
+
+Atenção: o pacote AgentCraft instala as **skills** e configurações, mas não fornece os executáveis ArtCraft. A opção `--target .` configura o repositório atual; indique a pasta de um projeto real para integrar os agentes nele.
 
 ## 3. Configure as skills no projeto
 
