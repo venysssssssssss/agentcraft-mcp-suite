@@ -5,6 +5,9 @@ metadata:
   opencode/slash: "true"
 ---
 
+
+> **ON-DEMAND ONLY:** This skill may orchestrate ArtCraft only when explicitly invoked with `/agentcraft` (Claude Code/OpenCode) or `$agentcraft` (Codex). Do not start MCP processes automatically. Client MCP configurations remain empty of ArtCraft servers. Use `agentcraft session start APP`, `agentcraft session tools/call`, `agentcraft session stop` for short-lived stateful native sessions. Start only the required apps, one at a time, and stop every session even on error. Do not enable other host MCP registrations.
+
 # AgentCraft — cross-app orchestrator
 
 Choose the appropriate `agentcraft-<app>` skill for each stage. Apps available:

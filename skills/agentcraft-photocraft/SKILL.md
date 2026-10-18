@@ -13,18 +13,24 @@ metadata:
 **Server binary:** `photocraft-cli`  
 **Headless args:** `mcp`
 
-## Invocation
+## Invocation policy — strictly on demand
 
-Use the MCP client server named `photocraft` directly. If server tools are not yet registered, instruct the user to install the matching CLI and register MCP first. A skill is not the executable.
+**Never start or access any ArtCraft MCP during ordinary conversation, auto-selected skills, agent startup, or broad task matching.** Only execute this workflow when the user **explicitly invokes** `/agentcraft-photocraft` in Claude Code/OpenCode or `$agentcraft-photocraft` in Codex. A skill can be auto-discovered by clients; this text is a behavioural gate, not a security boundary. The installer does not register any native ArtCraft MCP servers in the clients.
 
-Use the tools **returned by the running MCP server** (`tools/list`). If the runtime can read `docs/generated/photocraft.md`, consult it for the full schemas. To regenerate:
+Start **one temporary authenticated MCP session for this app only** using the AgentCraft CLI. Prefer `agentcraft` on PATH; if working inside the AgentCraft checkout, `./.venv/bin/agentcraft` or `python -m agentcraft` also work. Use full native binary paths where necessary. For supported scoped apps, pass `--workspace-root "$PWD"` to confine file access to the target workspace. Do not use this flag for apps lacking verified scoped flags.
 
-```sh
-python -m agentcraft doctor --apps photocraft
-python -m agentcraft catalog --apps photocraft --out docs/generated
+```bash
+agentcraft session start photocraft --bin-dir "$HOME/.local/bin" --idle-seconds 600
+# Parse the returned JSON field `session` as SID; keep it PRIVATE to this task.
+agentcraft session tools SID --filter doc --details
+agentcraft session call SID TOOL_NAME --arguments '{}'  # read-only tools
+agentcraft session call SID TOOL_NAME --arguments '{...}' --allow-write  # approved edits only
+agentcraft session stop SID
 ```
 
-Only call tool names, command ids, JSON parameters and resources present in the current catalog; read `inputSchema` before calling any tool. Some applications expose a small set of generic tools plus hundreds of engine commands. When present, query `command_list` or `list_commands` before `command_run` / `execute_command`; these command ids are a **second** surface, distinct from MCP method names. Document both when relevant.
+Keep the same SID for **every step of a stateful document/edit/export workflow**, including previews and final verification. Inspect exact input schemas with `session tools SID --details`, then use only observed tool names and parameters. A top-level `tools/list` does not enumerate all possible engine IDs: if `command_list` exists, call it in-session and use its returned command IDs through `command_run`.
+
+**Always stop the session in a finally/cleanup step, including after failures.** If cleanup is interrupted, the daemon automatically expires after 600 seconds of inactivity. Never enable or edit host `.mcp.json`, `opencode.json` MCP entries or `.codex/config.toml` for this task. A native host MCP registration defeats strict on-demand startup.
 
 ## Workflow
 

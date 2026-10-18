@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse
 import json
+import re
 import os
 import shutil
 import sys
@@ -127,96 +128,150 @@ def merge_codex_toml(path: Path, entries: dict[str, tuple[str, list[str]]], dry_
     write_atomic(path, original.rstrip() + '\n' + block, dry_run)
 
 
-def install(args):
-    apps = selected_apps(args.apps)
-    if args.scope == 'global' and args.file_scope == 'workspace':
-        raise ValueError('File scope workspace only works with project scope')
-    dest = Path(args.target).expanduser().resolve() if args.scope == 'project' else Path.home()
-    clients = ['codex','claude','opencode'] if args.client == 'all' else [args.client]
-    registered = {}
-    for app in apps:
-        path = binary_path(app, args.bin_dir)
-        if not path:
-            if args.strict:
-                raise SystemExit(f'Missing binary {app.binary}: install upstream app first or set --bin-dir')
-            print(f'WARN {app.name}: {app.binary} missing; skill installed, MCP not registered')
-        else:
-            try:
-                registered[app.name] = (path, start_args(app, args.mode,
-                    str(dest) if args.scope == 'project' and args.file_scope == 'workspace' and app.name in SCOPED_APPS else None,
-                    args.photocraft_token_file))
-            except ValueError as err:
-                print(f'WARN {app.name}: {err}; installing skill only')
-    for client in clients:
-        if client == 'codex':
-            skills_dest = dest / ('.agents/skills' if args.scope == 'project' else '.agents/skills')
-        elif client == 'claude':
-            skills_dest = dest / '.claude/skills'
-        else:
-            skills_dest = dest / ('.opencode/skills' if args.scope == 'project' else '.config/opencode/skills')
-        for app in apps:
-            source = ROOT / 'skills' / ('agentcraft-' + app.name) / 'SKILL.md'
-            write_atomic(skills_dest / ('agentcraft-' + app.name) / 'SKILL.md', source.read_text(encoding='utf-8'), args.dry_run)
-        source = ROOT / 'skills' / 'agentcraft' / 'SKILL.md'
-        write_atomic(skills_dest / 'agentcraft' / 'SKILL.md', source.read_text(encoding='utf-8'), args.dry_run)
-        if client in {'claude', 'opencode'}:
-            cmd_dest = dest / ('.claude/commands' if client == 'claude' else ('.opencode/commands' if args.scope == 'project' else '.config/opencode/commands'))
-            for app in apps:
-                filename = f'agentcraft-{app.name}.md'
-                write_atomic(cmd_dest / filename, (ROOT / 'commands' / filename).read_text(encoding='utf-8'), args.dry_run)
-        if not registered:
-            continue
-        if client == 'claude':
-            if args.scope == 'project':
-                cfg = dest / '.mcp.json'
-                merge_json(cfg, 'mcpServers', {n:{'command':b,'args':argv} for n,(b,argv) in registered.items()}, args.dry_run)
-            else:
-                print('INFO Claude global MCP: register via `claude mcp add --scope user NAME -- COMMAND ARGS`')
-                for n,(b,argv) in registered.items():
-                    print('   ', 'claude mcp add --scope user '+n+' -- '+json.dumps(b)+' '+' '.join(map(json.dumps,argv)))
-        if client == 'opencode':
-            cfg = dest / ('opencode.json' if args.scope == 'project' else '.config/opencode/opencode.json')
-            # Official OpenCode schema: mcp.<server> = {type, command[], enabled, timeout(ms)}.
-            # Older AgentCraft 0.1.0 mistakenly generated mcp.servers with an object timeout.
-            # Refuse ambiguous legacy configs instead of silently retaining broken entries.
-            if cfg.exists():
-                data = json.loads(cfg.read_text(encoding='utf-8'))
-                if not isinstance(data, dict):
-                    raise ValueError(f'Expected JSON object: {cfg}')
-            else:
-                data = {'$schema': 'https://opencode.ai/config.json'}
-            mcp = data.setdefault('mcp', {})
-            if not isinstance(mcp, dict):
-                raise ValueError(f'Expected mcp object: {cfg}')
-            if 'servers' in mcp:
-                legacy = mcp['servers']
-                if not isinstance(legacy, dict) or not all(
-                    isinstance(item, dict) and item.get('type') == 'local' and
-                    isinstance(item.get('command'), list) and
-                    isinstance(item.get('timeout'), dict)
-                    for item in legacy.values()
-                ):
-                    raise ValueError('OpenCode mcp.servers legacy section is ambiguous; migrate it to mcp.<name> manually')
-                # Copy only AgentCraft legacy sections; never overwrite an existing server.
-                for name, item in legacy.items():
-                    if name in mcp:
-                        raise ValueError(f'OpenCode config collision while migrating: {name}')
-                    mcp[name] = {'type': 'local', 'command': item['command'],
-                                 'enabled': True, 'timeout': 30000}
-                del mcp['servers']
-            mcp.update({
-                n: {'type': 'local', 'command': [b, *argv], 'enabled': True, 'timeout': 30000}
-                for n, (b, argv) in registered.items()
-            })
-            write_atomic(cfg, json.dumps(data, ensure_ascii=False, indent=2) + '\n', args.dry_run)
-        if client == 'codex':
-            cfg = dest / ('.codex/config.toml' if args.scope == 'project' else '.codex/config.toml')
-            merge_codex_toml(cfg, registered, args.dry_run)
-    print(f'Installed {len(apps)} skill(s) for {", ".join(clients)}. MCP binaries detected: {len(registered)}/{len(apps)}; registration depends on client scope.')
-    if args.mode == 'desktop':
-        print('Desktop bridge requires corresponding app started with its documented --control port.')
-    print('Restart the agent clients, then run: python -m agentcraft doctor --apps all')
+def _artcraft_binary_match(name: str, binary: str, argv: list) -> bool:
+    """Only manage prior AgentCraft-generated native STDIO MCP entries."""
+    if not isinstance(binary, str) or not isinstance(argv, list) or not argv:
+        return False
+    basename = Path(binary).name.lower()
+    return basename in {f'{name}-cli', f'{name}-cli.exe'} and argv[0] == 'mcp'
 
+
+def _cleanup_json_registration(path: Path, client: str, dry_run: bool) -> list[str]:
+    if not path.is_file():
+        return []
+    data=json.loads(path.read_text(encoding='utf-8'))
+    if not isinstance(data,dict):
+        raise ValueError(f'Invalid client JSON object: {path}')
+    key='mcpServers' if client=='claude' else 'mcp'
+    registry=data.get(key,{})
+    if not isinstance(registry,dict):
+        raise ValueError(f'Invalid {key} in {path}')
+    removed=[]
+    for name in APPS:
+        item=registry.get(name)
+        if not isinstance(item,dict):
+            continue
+        if client=='claude':
+            candidate=_artcraft_binary_match(name,item.get('command'),item.get('args'))
+        else:
+            command=item.get('command',[])
+            candidate=(item.get('type')=='local' and isinstance(command,list) and len(command)>1
+                      and _artcraft_binary_match(name,command[0],command[1:]))
+        if not candidate:
+            raise ValueError(f'Cannot guarantee on-demand: pre-existing {client} MCP entry {name} '
+                             f'in {path} is not recognizably AgentCraft-generated. Disable it manually.')
+        del registry[name]
+        removed.append(name)
+    if client=='opencode' and isinstance(registry.get('servers'),dict):
+        legacy=registry['servers']
+        for name in list(legacy):
+            item=legacy[name]
+            command=item.get('command',[]) if isinstance(item,dict) else []
+            if name in APPS and isinstance(command,list) and len(command)>1 and _artcraft_binary_match(name,command[0],command[1:]):
+                del legacy[name]
+                removed.append(name+' (legacy)')
+        if not legacy:
+            del registry['servers']
+    if removed:
+        if not registry: del data[key]
+        if dry_run: print(f'DRY RUN unregister {client}: {path}: {removed}')
+        else: write_atomic(path,json.dumps(data,ensure_ascii=False,indent=2)+'\n',False)
+    return removed
+
+
+def _cleanup_codex_registration(path: Path, dry_run: bool) -> list[str]:
+    if not path.is_file():
+        return []
+    original=path.read_text(encoding='utf-8')
+    marker='# AgentCraft MCP servers (generated; review before use)'
+    if marker not in original:
+        try:
+            data=tomllib.loads(original)
+        except Exception as exc:
+            raise ValueError(f'Invalid Codex TOML {path}: {exc}') from exc
+        for name in APPS:
+            if name in data.get('mcp_servers',{}):
+                raise ValueError(f'Cannot guarantee on-demand: unmanaged Codex MCP {name} exists in {path}')
+        return []
+    before,tail=original.split(marker,1)
+    # Split at TOML headings; only remove generated app sections, preserve custom
+    # sections appended by the user after the generated block.
+    segments=re.split(r'(?=^\[[^\]\n]+\])',tail,flags=re.MULTILINE)
+    remaining=[]
+    removed=[]
+    for seg in segments:
+        mat=re.match(r'^\[mcp_servers\.([a-z]+)\]',seg)
+        if mat and mat.group(1) in APPS:
+            name=mat.group(1)
+            try:
+                entry=tomllib.loads(seg)['mcp_servers'][name]
+            except Exception as exc:
+                raise ValueError(f'Cannot safely migrate invalid Codex MCP config: {path}: {exc}') from exc
+            if not _artcraft_binary_match(name,entry.get('command'),entry.get('args')):
+                raise ValueError(f'Cannot guarantee on-demand: unrecognized Codex config for {name}')
+            removed.append(name)
+        elif seg.strip():
+            remaining.append(seg)
+    cleaned=before.rstrip('\n')+'\n'+''.join(remaining).strip('\n')
+    if cleaned.strip(): cleaned=cleaned.rstrip()+'\n'
+    if original!=cleaned:
+        write_atomic(path,cleaned,dry_run)
+    return removed
+
+
+def install(args):
+    """Install skill/command routers only. Native MCPs are never host-registered."""
+    apps=selected_apps(args.apps)
+    if args.scope=='global' and args.file_scope=='workspace':
+        raise ValueError('File scope workspace only works with project scope')
+    dest=Path(args.target).expanduser().resolve() if args.scope=='project' else Path.home()
+    clients=['codex','claude','opencode'] if args.client=='all' else [args.client]
+    if args.strict:
+        missing=[a.binary for a in apps if not binary_path(a,args.bin_dir)]
+        if missing:
+            raise FileNotFoundError('Missing native binaries: '+', '.join(missing))
+    # Cleanup is not limited to selected apps: previous `--apps all` may have
+    # eagerly registered more MCPs than the current selection. Fail closed for
+    # unfamiliar entries rather than incorrectly advertising a guarantee.
+    for client in clients:
+        if client=='claude' and args.scope=='project':
+            removed=_cleanup_json_registration(dest/'.mcp.json','claude',args.dry_run)
+        elif client=='opencode':
+            cfg=dest/('opencode.json' if args.scope=='project' else '.config/opencode/opencode.json')
+            removed=_cleanup_json_registration(cfg,'opencode',args.dry_run)
+        elif client=='codex':
+            removed=_cleanup_codex_registration(dest/'.codex/config.toml',args.dry_run)
+        else:
+            removed=[]
+        if removed:
+            print(f'Unregistered {client} eager MCP entries: {", ".join(removed)}')
+    for client in clients:
+        if client=='codex':
+            skills_dest=dest/'.agents/skills'
+        elif client=='claude':
+            skills_dest=dest/'.claude/skills'
+        else:
+            skills_dest=dest/('.opencode/skills' if args.scope=='project' else '.config/opencode/skills')
+        for app in apps:
+            path=skills_dest/('agentcraft-'+app.name)/'SKILL.md'
+            source=ROOT/'skills'/('agentcraft-'+app.name)/'SKILL.md'
+            write_atomic(path,source.read_text(encoding='utf-8'),args.dry_run)
+        write_atomic(skills_dest/'agentcraft/SKILL.md',(ROOT/'skills/agentcraft/SKILL.md').read_text(encoding='utf-8'),args.dry_run)
+        if client in {'claude','opencode'}:
+            cmd_dest=dest/('.claude/commands' if client=='claude' else
+                           ('.opencode/commands' if args.scope=='project' else '.config/opencode/commands'))
+            for app in apps:
+                filename=f'agentcraft-{app.name}.md'
+                write_atomic(cmd_dest/filename,(ROOT/'commands'/filename).read_text(encoding='utf-8'),args.dry_run)
+            write_atomic(cmd_dest/'agentcraft.md',(ROOT/'commands/agentcraft.md').read_text(encoding='utf-8'),args.dry_run)
+    available=sum(bool(binary_path(app,args.bin_dir)) for app in apps)
+    print(f'Installed {len(apps)} specialist skills + orchestrator for {", ".join(clients)}. '
+          f'Native CLIs detected: {available}/{len(apps)}. Client MCP servers registered: 0.')
+    print('ON-DEMAND: no ArtCraft MCP starts on client startup. Slash/skill commands use '
+          '`agentcraft session start <app>` and stop their temporary session after the task.')
+    if args.mode!='headless' or args.file_scope!='none':
+        print('INFO: choose --mode and --workspace-root at `agentcraft session start` time.')
+    print('Restart client(s) to clear pre-existing in-memory MCP connections.')
 
 def probe(app: CraftApp, args):
     binpath = binary_path(app, args.bin_dir)
@@ -319,7 +374,7 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument('--timeout',type=float,default=15.0)
         p.add_argument('--photocraft-token-file',help='private control token file for PhotoCraft desktop bridge')
         p.add_argument('--workspace-root',help='optional read/write confined workspace for supported headless apps')
-    install_p=sub.add_parser('install',help='install reusable skills, slash commands and detected MCP configs')
+    install_p=sub.add_parser('install',help='install slash/skill routers WITHOUT eager host MCP registrations')
     install_p.add_argument('--scope',choices=['project','global'],default='project')
     install_p.add_argument('--target',default='.',help='project root (project scope)')
     install_p.add_argument('--client',choices=['all','codex','claude','opencode'],default='all')
@@ -344,8 +399,20 @@ def main(argv: list[str] | None = None) -> int:
     call.add_argument('--args-file')
     call.add_argument('--allow-write',action='store_true')
     common(call)
+    auditp=sub.add_parser('audit',help='detect remaining eager ArtCraft MCP registrations')
+    auditp.add_argument('--target',default='.')
+    sess=sub.add_parser('session',help='manage explicit on-demand, persistent native MCP sessions')
+    sess.add_argument('session_args',nargs=argparse.REMAINDER)
     args=parser.parse_args(argv)
     try:
+        if args.action=='audit':
+            from .audit import audit
+            result=audit(Path(args.target))
+            print(json.dumps(result,ensure_ascii=False,indent=2))
+            return 0 if result['ok'] else 1
+        if args.action=='session':
+            from .session import main as session_main
+            return session_main(args.session_args)
         if args.action=='install':
             install(args)
             return 0

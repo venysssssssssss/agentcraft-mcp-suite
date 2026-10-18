@@ -115,7 +115,7 @@ class MCPProcess:
         result = self.request('initialize', {
             'protocolVersion': '2025-06-18',
             'capabilities': {},
-            'clientInfo': {'name': 'agentcraft-catalog', 'version': '0.1.1'},
+            'clientInfo': {'name': 'agentcraft-catalog', 'version': '0.2.0'},
         })
         self.notify('notifications/initialized')
         return result

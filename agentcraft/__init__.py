@@ -1,2 +1,2 @@
-"""AgentCraft: reproducible Agent Skills and MCP discovery for Storytold apps."""
-__version__ = "0.1.1"
+"""AgentCraft: on-demand native MCP sessions and reusable agent skills."""
+__version__ = "0.2.0"
