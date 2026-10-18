@@ -42,7 +42,33 @@ Se faltar `ensurepip`, instale `python3-venv` via `apt`. Em sessões posteriores
 
 Atenção: o pacote AgentCraft instala as **skills** e configurações, mas não fornece os executáveis ArtCraft. A opção `--target .` configura o repositório atual; indique a pasta de um projeto real para integrar os agentes nele.
 
-## 3. Configure as skills no projeto
+## 3. Instale os executáveis ArtCraft no WSL2
+
+As skills já podem estar instaladas, mas o MCP só será registrado quando o executável `*-cli` correspondente estiver disponível.
+
+O repositório contém um instalador opcional para Linux x86_64/aarch64 que baixa os releases **oficiais**, confere SHA-256 e preserva os arquivos auxiliares. Comece por um aplicativo:
+
+```bash
+cd ~/BIG/agentcraft-mcp-suite
+git pull
+bash scripts/install-native-linux.sh effectcraft
+
+agentcraft install --scope project --target . --apps effectcraft --client all --bin-dir "$HOME/.local/bin"
+agentcraft doctor --apps effectcraft --bin-dir "$HOME/.local/bin"
+```
+
+Depois, para todos os 13 aplicativos:
+
+```bash
+df -h /
+bash scripts/install-native-linux.sh --all
+agentcraft install --scope project --target . --apps all --client all --bin-dir "$HOME/.local/bin"
+agentcraft doctor --apps all --bin-dir "$HOME/.local/bin"
+```
+
+O download das 13 versões x86_64 consultadas soma aproximadamente **938 MiB compactados**, antes da extração. O tamanho instalado e as dependências do sistema variam; no WSL2 a imagem do disco virtual poderá crescer. O `doctor` confirma apenas o handshake MCP, não a qualidade dos renders.
+
+## 4. Configure as skills no projeto
 
 Exemplo Linux/WSL:
 
@@ -59,7 +85,7 @@ agentcraft install --scope project --target C:\Dev\meu-projeto --apps effectcraf
 
 Quando necessário, informe `--bin-dir` (diretório contendo vários CLIs). Use `--strict` para interromper se algum binário selecionado não for encontrado.
 
-## 4. Faça o diagnóstico
+## 5. Faça o diagnóstico
 
 ```bash
 agentcraft doctor --apps effectcraft
@@ -68,14 +94,14 @@ agentcraft catalog --apps effectcraft --engine --out docs/generated
 
 A execução cria `docs/generated/effectcraft.md` e `docs/generated/effectcraft.json` com os **endpoints e schemas descobertos do binário instalado**. Reinicie seu cliente depois da instalação.
 
-## 5. Como invocar
+## 6. Como invocar
 
 - Codex: `$agentcraft-effectcraft`.
 - Claude Code: `/agentcraft-effectcraft`.
 - OpenCode: `/agentcraft-effectcraft`.
 - Orquestração entre várias ferramentas: `agentcraft`.
 
-## 6. Cuidados
+## 7. Cuidados
 
 O MCP executa processos e pode criar/modificar arquivos. Para builds cuja documentação upstream confirma isolamento de diretórios, use `--file-scope workspace` com `--scope project`. Cada app possui limitações de bridge, tokens, modo headless e exportação. Não presuma que endpoints internos tenham IDs idênticos entre versões.
 
