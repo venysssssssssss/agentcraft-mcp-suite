@@ -272,6 +272,13 @@ def install(args):
     if args.mode!='headless' or args.file_scope!='none':
         print('INFO: choose --mode and --workspace-root at `agentcraft session start` time.')
     print('Restart client(s) to clear pre-existing in-memory MCP connections.')
+    if not args.dry_run:
+        from .audit import audit
+        outcome=audit(dest)
+        if not outcome['ok']:
+            problems='; '.join(f"{v['client']}: {v.get('server','config')} in {v['file']}" for v in outcome['findings'])
+            raise ValueError('Strict on-demand activation NOT verified: remaining eager ArtCraft MCP '
+                             f'registrations found: {problems}. Disable them and rerun `agentcraft audit`.')
 
 def probe(app: CraftApp, args):
     binpath = binary_path(app, args.bin_dir)
