@@ -5,23 +5,53 @@
 One installer. Fourteen reusable Agent Skills (13 specialists + an orchestrator). A CLI to inspect live MCP endpoints and export their schemas. No unofficial endpoints, invented commands, or bundled application binaries.
 
 > [!IMPORTANT]
-> **Release 0.1.1 — integration foundation, not a fully certified ArtCraft automation suite.** The installer, MCP discovery, schema export, and mock-server tests run successfully. End-to-end editing and rendering **have not** been tested against all 13 real ArtCraft builds. Each upstream application remains independently versioned; inspect the schemas returned by the binary you installed.
+> **Release 0.2.0:** Strict on-demand startup by default. The user-run WSL2 MCP handshake succeeded for 13/13 native apps and the EffectCraft H.264 smoke test passed; host-command execution and fully creative workflows still require end-to-end testing.
 
-**[Quick start](#quick-start)** · **[Português](docs/quickstart-pt-BR.md)** · **[Applications](#supported-applications)** · **[Client integration](#integrate-with-your-agent)** · **[MCP reference](#discover-every-supported-mcp-endpoint)** · **[Security](#security-model)** · **[Troubleshooting](#troubleshooting)**
+**[Strict on-demand](#strict-on-demand-activation-v020)** · **[Quick start](#quick-start)** · **[Português](docs/quickstart-pt-BR.md)** · **[Applications](#supported-applications)** · **[Client integration](#integrate-with-your-agent)** · **[MCP reference](#discover-every-supported-mcp-endpoint)** · **[Security](#security-model)** · **[Troubleshooting](#troubleshooting)**
 
-## How it works
+## Strict on-demand activation (v0.2.0)
 
-```mermaid
-flowchart LR
-    U[Codex / Claude Code / OpenCode] --> S[AgentCraft skill]
-    S --> M[Native ArtCraft MCP server]
-    M --> E[Headless engine or desktop bridge]
-    E --> O[Editable project / exported asset]
-    D[agentcraft doctor / catalog] --> M
-    D --> J[Live tool schemas and documentation]
+**No ArtCraft MCP servers are registered in Codex, Claude Code, or OpenCode at startup.** Commands and skills remain available as small prompts. The invoked skill uses the AgentCraft CLI to launch exactly one selected native MCP subprocess, retain its editing state across calls, and stop it afterward. The daemon also auto-expires after 10 minutes of inactivity.
+
+**Explicit entry points:** OpenCode and Claude Code: `/agentcraft-pdfcraft`; Codex: `$agentcraft-pdfcraft` (Codex skills use `# AgentCraft MCP Suite
+
+**Use the 13 Storytold ArtCraft creative applications from Codex, Claude Code, and OpenCode through their native MCP servers.**
+
+One installer. Fourteen reusable Agent Skills (13 specialists + an orchestrator). A CLI to inspect live MCP endpoints and export their schemas. No unofficial endpoints, invented commands, or bundled application binaries.
+
+> [!IMPORTANT]
+> **Release 0.2.0:** Strict on-demand startup by default. The user-run WSL2 MCP handshake succeeded for 13/13 native apps and the EffectCraft H.264 smoke test passed; host-command execution and fully creative workflows still require end-to-end testing.
+
+**[Strict on-demand](#strict-on-demand-activation-v020)** · **[Quick start](#quick-start)** · **[Português](docs/quickstart-pt-BR.md)** · **[Applications](#supported-applications)** · **[Client integration](#integrate-with-your-agent)** · **[MCP reference](#discover-every-supported-mcp-endpoint)** · **[Security](#security-model)** · **[Troubleshooting](#troubleshooting)**
+
+, not the custom slash command syntax). The same pattern covers all 13 apps.
+
+**Migration of previous eager configs:** from an activated checkout run:
+
+```bash
+git pull --ff-only
+python -m pip install -e .
+agentcraft install --scope project --target . --apps all --client all --bin-dir "$HOME/.local/bin"
+agentcraft audit --target .
 ```
 
-AgentCraft is **not a replacement editor** and does not implement third-party MCP tools. It installs skill instructions and registers the upstream `*-cli mcp` executable for each selected app. The agent discovers available commands and drives the real editor. Use the desktop bridge when you need to observe work in the UI; use headless for unattended production where supported.
+Restart all agent clients afterward: processes initialized under v0.1.1 may remain alive until the clients restart. The installer removes only recognizable AgentCraft registrations and refuses unrecognized collisions; `audit` also checks common global config locations. Other plugins or explicit manual registrations are outside the installer's control.
+
+**Important architecture distinction:** This is real upstream MCP over short-lived local subprocesses, driven by client **shell tools**, not automatic injection of native MCP tools into a running host. A skill cannot force the LLM to obey commands or guarantee that arbitrary shell use happens only after a slash command. The guaranteed property in managed configurations is **zero eager ArtCraft MCP registrations**.
+
+See the complete [on-demand design, session API, migration, security and limitations](docs/on-demand.md).
+
+### Manual session example
+
+```bash
+agentcraft session start pdfcraft --bin-dir "$HOME/.local/bin" --workspace-root "$PWD"
+# Copy the JSON `session` field into SID:
+agentcraft session tools SID --details
+agentcraft session call SID doc_inspect --arguments '{}'
+agentcraft session stop SID
+```
+
+## Quick start
 
 ## Quick start
 
@@ -83,7 +113,7 @@ agentcraft doctor --apps all --bin-dir "$HOME/.local/bin"
 
 This operation is intentionally opt-in because WSL virtual disks grow with downloaded files. A successful download does **not** guarantee an MCP connection: native shared libraries and application-version differences can still prevent startup. If the doctor reports an ELF/shared-library failure, inspect `ldd ~/.local/bin/effectcraft-cli` and install only the missing system runtime packages after review.
 
-### 3. Register your apps in a working project
+### 3. Install on-demand skills and commands in a working project
 
 ```bash
 # Linux / macOS / WSL: adapt these paths to your machine.
@@ -94,7 +124,7 @@ agentcraft install \
   --client all
 ```
 
-`--apps all` installs skills for all 13, but only registers MCP servers for **detected** binaries. `--strict` fails when an app is missing instead of silently skipping its MCP registration.
+`--apps all` installs specialist skills and commands for the 13 apps, but **never registers MCPs at host startup**. `--strict` fails when an app is missing instead of silently skipping its MCP registration.
 
 If executables are not on `PATH`, use `--bin-dir /path/to/cli-directory` if they are together, or define per-app variables such as `AGENTCRAFT_EFFECTCRAFT_CLI=/absolute/path/to/effectcraft-cli`. On Windows use the full `.exe` path.
 
@@ -117,77 +147,15 @@ Restart your agent client to pick up the newly installed skills and MCP definiti
 
 ## Integrate with your agent
 
-The installer writes the corresponding skill and MCP config to your **target workspace**. Existing JSON/TOML configuration is preserved where supported; inspect the generated changes before committing them to a shared repository.
+| Host | On-demand command | MCP process started at host startup? |
+|---|---|---|
+| OpenCode | `/agentcraft-pdfcraft` | **No** |
+| Claude Code | `/agentcraft-pdfcraft` | **No** |
+| Codex | `$agentcraft-pdfcraft` | **No** |
 
-| Agent client | Project skill location | MCP configuration | Invoke |
-|---|---|---|---|
-| **Codex** | `.agents/skills/agentcraft-effectcraft/SKILL.md` | `.codex/config.toml` | `$agentcraft-effectcraft` |
-| **Claude Code** | `.claude/skills/agentcraft-effectcraft/SKILL.md` | `.mcp.json` | `/agentcraft-effectcraft` |
-| **OpenCode** | `.opencode/skills/agentcraft-effectcraft/SKILL.md` | `opencode.json` | `/agentcraft-effectcraft` |
+The slash command (or Codex skill) instructs the model to use its **shell tool** to call `agentcraft session start`, `session tools`, `session call`, and `session stop`. It deliberately does **not** register any native ArtCraft MCP tool with the host. Review [the actual lifecycle](docs/on-demand.md) before relying on it.
 
-OpenCode also receives an explicit command file under `.opencode/commands`. Claude Code receives `.claude/commands`. `agentcraft` is the general-purpose router skill. See the [official Codex MCP documentation](https://developers.openai.com/codex/mcp), [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp), [OpenCode MCP documentation](https://docs.opencode.ai/docs/mcp-servers/), and [OpenCode skills documentation](https://docs.opencode.ai/docs/skills/).
-
-### MCP configuration examples
-
-For **OpenCode**, generated `opencode.json` uses the documented `mcp.<name>` structure, with a **flat** `command` array and timeout in milliseconds:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "effectcraft": {
-      "type": "local",
-      "command": ["/absolute/path/to/effectcraft-cli", "mcp"],
-      "enabled": true,
-      "timeout": 30000
-    }
-  }
-}
-```
-
-For **Claude Code**, `.mcp.json` uses:
-
-```json
-{
-  "mcpServers": {
-    "effectcraft": {
-      "command": "/absolute/path/to/effectcraft-cli",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-For **Codex**, `.codex/config.toml` uses:
-
-```toml
-[mcp_servers.effectcraft]
-command = "/absolute/path/to/effectcraft-cli"
-args = ["mcp"]
-startup_timeout_sec = 30
-tool_timeout_sec = 120
-```
-
-Replace the example path with the **detected path on your machine**. You ordinarily do **not** need to edit these configurations manually: `agentcraft install` generates them.
-
-### Example agent requests
-
-```text
-/agentcraft-effectcraft Create a 6-second 1920x1080 kinetic typography intro,
-preview frames, then render the deliverable. Report the output path and verification.
-```
-
-```text
-/agentcraft-vectorcraft Design a vector illustration. Export the native project
-and SVG; inspect the output for clipping and text legibility.
-```
-
-```text
-$agentcraft Plan a cross-app workflow: vector illustration → motion composition
-→ video editing. Check the MCP tools and interchange formats before execution.
-```
-
-The third example uses Codex's `$` invocation. Requests are **examples**, not guaranteed capabilities; engine commands, encoders and output formats are determined by your installed versions.
+**Example test prompt:** `/agentcraft-pdfcraft Create a three-page A4 Nike-inspired black-and-white editorial with lorem ipsum. Use only the PdfCraft native MCP through AgentCraft's temporary session, save ./nike-concept.pdf, verify page count and output, and stop the session.`
 
 ## EffectCraft H.264 render smoke test (manual E2E)
 
@@ -234,10 +202,10 @@ All 13 upstream projects document headless MCP entrypoints. GUI bridge flags are
 | `--attach` | FigCraft |
 | No documented desktop bridge in AgentCraft registry | PdfCraft |
 
-Example of desktop-mode registration, **after** launching the application's GUI with its control port:
+Example of a temporary desktop session, **after** launching the application's GUI with its control port:
 
 ```bash
-agentcraft install --target /path/to/project --apps effectcraft --client all --mode desktop
+agentcraft session start effectcraft --mode desktop --bin-dir "$HOME/.local/bin"
 ```
 
 PhotoCraft requires an additional `--photocraft-token-file` matching the desktop app's control-token file. Desktop bridges may fail unless their GUI is running; they should not be exposed over public network interfaces. See upstream docs before using live control.
@@ -272,7 +240,7 @@ The placeholder ID is intentional; substitute a real ID discovered from your run
 
 - **OS authority:** Native MCP servers inherit the privileges of the process running them; they can read/write files according to upstream behavior. A skill is not a sandbox.
 - **Scoped filesystem:** For upstream builds with verified `--automation-read-root` / `--automation-write-root`, enable `--file-scope workspace` in **project** scope. Coverage varies; certain scripting/GUI capabilities are deliberately unavailable in confined mode.
-- **Mutating operations:** `agentcraft call` requires `--allow-write` when `annotations.readOnlyHint` is not explicitly true; the agent's native MCP connection still uses its own authorization controls.
+- **Mutating operations:** `agentcraft session call` requires `--allow-write` when `annotations.readOnlyHint` is not explicitly true; the agent's native MCP connection still uses its own authorization controls.
 - **Secrets:** Do not commit `.mcp.json` containing private tokens, generated agent configuration, credentials or exported client data. Keep GUI control channels on loopback.
 - **Source integrity:** Download ArtCraft binaries from upstream and verify platform signatures/checksums when provided. This repository includes original integration code and prompts only.
 
@@ -299,7 +267,7 @@ python -m compileall -q agentcraft
 agentcraft doctor --apps effectcraft  # requires effectcraft-cli installed
 ```
 
-CI tests the Python installer and a simulated MCP server across Python 3.11–3.13; these tests do **not** certify a particular ArtCraft build. Contributions adding real-bin smoke tests, upstream compatibility checks and verified sample projects are welcome. See [verification](docs/verification.md).
+CI tests the installer, migration and on-demand sessions using a simulated MCP server. User-observed native ArtCraft runs and EffectCraft H.264 rendering are separate from CI; client slash-command execution remains unverified. Contributions adding real-bin smoke tests, upstream compatibility checks and verified sample projects are welcome. See [verification](docs/verification.md).
 
 ```text
 agentcraft/           Python installer, registry, JSON-RPC MCP inspector
