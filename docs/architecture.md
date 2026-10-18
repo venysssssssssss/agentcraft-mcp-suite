@@ -1,5 +1,7 @@
 # Architecture — AgentCraft
 
+> **v0.2.0:** Native MCPs are never registered eagerly by the installer. Use [strict on-demand architecture](on-demand.md), including subprocess lifecycle and client-specific invocation. References below to MCP registration describe legacy versions only.
+
 ## Data flow
 
 ```mermaid
