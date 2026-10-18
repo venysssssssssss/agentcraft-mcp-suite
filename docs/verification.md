@@ -8,11 +8,13 @@
 | Codex Skills | `SKILL.md` in `.agents/skills` and TOML registration | Generated; host runtime untested |
 | OpenCode MCP registration | `mcp.<app>` JSON schema (flat `command`, integer `timeout`) | Unit-tested, including migration from 0.1.0 |
 | MCP JSON-RPC transport | mock `initialize`, `tools/list` pagination and missing method | Unit-tested |
-| Live binary handshake | `agentcraft doctor` against each installed CLI | **Requires target machines** |
-| Exhaustive MCP tool catalog | Dynamic `tools/list` pagination, JSON schemas | Tooling implemented; live output pending |
+| Live binary handshake | User-provided WSL2 output (2026-10-18): `agentcraft doctor --apps all` returned OK for 13/13 installed CLIs | **Confirmed by user log; not reproduced in CI** |
+| Exhaustive MCP tool catalog | Dynamic `tools/list` pagination, JSON schemas | Tooling implemented; user reported live discovery; versioned snapshots not independently audited |
 | Engine command list | Optional `--engine`, where read-only listing tool exists | Tooling implemented; coverage app-dependent |
 | GUI bridges | Vary per app and control-port/token setup | **Not tested** |
-| Render, export, round-trip fidelity | Real projects/formats and visual QC | **Not tested** |
+| EffectCraft project create/save/preview | User-provided WSL2 log: created 1920x1080 project, text layer, saved `.ecproj`, preview included image and text | **User-run success; EffectCraft 0.11.1 only** |
+| EffectCraft H.264 export | [`effectcraft_render_e2e.py`](../examples/effectcraft_render_e2e.py) + FFprobe | **Simulated tests passed; real render pending** |
+| Render, export, round-trip fidelity across 13 apps | Real projects/formats and visual QC | **Not tested across all apps** |
 | Security and confinement | Explicit flags supported by each upstream | **Requires per-app audit** |
 
 ## Acceptance plan for v1.0
