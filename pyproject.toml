@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentcraft-mcp-suite"
+version = "0.1.1"
+description = "13 native MCP-backed Agent Skills for the Storytold ArtCraft suite"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{name = "AgentCraft contributors"}]
+keywords = ["agent-skills", "mcp", "artcraft", "claude-code", "codex", "opencode"]
+classifiers = ["Programming Language :: Python :: 3"]
+
+[project.scripts]
+agentcraft = "agentcraft.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["agentcraft*"]
+
+[tool.setuptools.package-data]
+agentcraft = ["bundled/skills/*/SKILL.md", "bundled/commands/*.md"]
