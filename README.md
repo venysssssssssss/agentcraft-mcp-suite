@@ -59,7 +59,31 @@ Keep that environment activated when using the command, or invoke `./.venv/bin/a
 
 The examples below assume `agentcraft` is available on your `PATH`. The installer writes skills to the **specified target workspace**; running `--target .` inside this repository configures this repository, not every other project.
 
-### 2. Register your apps in a working project
+### 2. Install the native ArtCraft CLIs (Ubuntu / WSL2)
+
+Installing AgentCraft itself does not install the upstream applications. For Linux x86_64 and aarch64, this repository includes an **optional standalone installer** that downloads the official GitHub Release `.tar.gz` trees and verifies their published SHA-256 digests. It extracts them under `~/.local/share/agentcraft/native`, keeping resource files alongside the binaries, and links the `*-cli` files under `~/.local/bin`. It does not require sudo, Rust builds, or system-wide Python modifications.
+
+Start with just one app and validate its real MCP server:
+
+```bash
+# From this repository
+bash scripts/install-native-linux.sh effectcraft
+agentcraft install --scope project --target . --apps effectcraft --client all --bin-dir "$HOME/.local/bin"
+agentcraft doctor --apps effectcraft --bin-dir "$HOME/.local/bin"
+```
+
+To install all thirteen *native app release trees* (downloads approximately **938 MiB** for Linux x86_64 as of October 2026, plus extracted size and runtime dependencies), use:
+
+```bash
+df -h /
+bash scripts/install-native-linux.sh --all
+agentcraft install --scope project --target . --apps all --client all --bin-dir "$HOME/.local/bin"
+agentcraft doctor --apps all --bin-dir "$HOME/.local/bin"
+```
+
+This operation is intentionally opt-in because WSL virtual disks grow with downloaded files. A successful download does **not** guarantee an MCP connection: native shared libraries and application-version differences can still prevent startup. If the doctor reports an ELF/shared-library failure, inspect `ldd ~/.local/bin/effectcraft-cli` and install only the missing system runtime packages after review.
+
+### 3. Register your apps in a working project
 
 ```bash
 # Linux / macOS / WSL: adapt these paths to your machine.
@@ -82,7 +106,7 @@ agentcraft install --scope project --target C:\Dev\my-project --apps effectcraft
 
 If you run agents in **WSL2**, use Linux-native ArtCraft binaries inside WSL. Installing an `.exe` on Windows does not make its GUI, file paths, sockets, or MCP subprocess lifecycle equivalent to a native WSL process. Run the agent and its MCP binary in the **same OS environment** whenever possible.
 
-### 3. Validate the connection and load commands
+### 4. Validate the connection and load commands
 
 ```bash
 agentcraft doctor --apps effectcraft,filmcraft,vectorcraft
