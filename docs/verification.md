@@ -13,8 +13,9 @@
 | Engine command list | Optional `--engine`, where read-only listing tool exists | Tooling implemented; coverage app-dependent |
 | GUI bridges | Vary per app and control-port/token setup | **Not tested** |
 | EffectCraft project create/save/preview | User-provided WSL2 log: created 1920x1080 project, text layer, saved `.ecproj`, preview included image and text | **User-run success; EffectCraft 0.11.1 only** |
-| EffectCraft H.264 export | [`effectcraft_render_e2e.py`](../examples/effectcraft_render_e2e.py) + FFprobe | **Simulated tests passed; real render pending** |
-| Render, export, round-trip fidelity across 13 apps | Real projects/formats and visual QC | **Not tested across all apps** |
+| EffectCraft H.264 export | User-executed WSL2 run (2026-10-18): `effectcraft_render_e2e.py` completed 30-frame queue render, 0 failures; FFprobe verified `h264`, 1920×1080, 1.0 s and 32,388 bytes | **User-run real E2E success on EffectCraft 0.11.1; not reproduced in CI** |
+| Animated-frame difference / motion and visual fidelity | Motion-keyframe scene, frame checksums, manual visual inspection | **Not yet tested** |
+| Render, export, round-trip fidelity across 13 apps | Real projects/formats and visual QC | **EffectCraft: H.264 encoding smoke passed; full cross-app validation pending** |
 | Security and confinement | Explicit flags supported by each upstream | **Requires per-app audit** |
 
 ## Acceptance plan for v1.0
